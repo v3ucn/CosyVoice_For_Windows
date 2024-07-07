@@ -24,6 +24,9 @@ conda create -n cosyvoice python=3.11
 conda activate cosyvoice
 pip install -r requirements.txt -i https://mirrors.aliyun.com/pypi/simple/ --trusted-host=mirrors.aliyun.com
 
+install deepspeed from https://github.com/S95Sedan/Deepspeed-Windows/releases/tag/v14.0%2Bpy311
+
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
 
 # when you in windows
 no need to install sox 
