@@ -10,9 +10,9 @@ For `SenseVoice`, visit [SenseVoice repo](https://github.com/FunAudioLLM/SenseVo
 
 - Clone the repo
 ``` sh
-git clone --recursive https://github.com/FunAudioLLM/CosyVoice.git
+git clone --recursive https://github.com/v3ucn/CosyVoice_For_Windows.git
 # If you failed to clone submodule due to network failures, please run following command until success
-cd CosyVoice
+cd CosyVoice_For_Windows
 git submodule update --init --recursive
 ```
 
@@ -103,6 +103,8 @@ Please see the demo website for details.
 # change speech_tts/CosyVoice-300M-SFT for sft inference, or speech_tts/CosyVoice-300M-Instruct for instruct inference
 python3 webui.py --port 9886 --model_dir ./pretrained_models/CosyVoice-300M
 ```
+![PixPin_2024-07-07_15-00-18](https://github.com/v3ucn/CosyVoice_For_Windows/assets/1288038/7c6fa726-050a-4d54-9973-fe8c6a284ef3)
+
 
 **Advanced Usage**
 
