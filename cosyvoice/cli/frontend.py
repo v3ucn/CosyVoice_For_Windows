@@ -89,7 +89,10 @@ class CosyVoiceFrontEnd:
         text = text.strip()
         if contains_chinese(text):
             # text = self.frd.get_frd_extra_info(text, 'input').replace("\n", "")
+<<<<<<< HEAD
 
+=======
+>>>>>>> 10f2ce91812b1ac0420c028573def87e6ee2566a
             text = text.replace("\n", "")
             text = replace_blank(text)
             text = replace_corner_mark(text)
