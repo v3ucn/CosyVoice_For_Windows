@@ -89,18 +89,20 @@ class CosyVoiceFrontEnd:
         text = text.strip()
         if contains_chinese(text):
             # text = self.frd.get_frd_extra_info(text, 'input').replace("\n", "")
+
+            text = text.replace("\n", "")
             text = replace_blank(text)
             text = replace_corner_mark(text)
             text = text.replace(".", "、")
             text = text.replace(" - ", "，")
             text = remove_bracket(text)
-            texts = [i for i in split_paragraph(text, partial(self.tokenizer.encode, allowed_special=self.allowed_special), "zh", token_max_n=80,
-                                                token_min_n=60, merge_len=20,
+            texts = [i for i in split_paragraph(text, partial(self.tokenizer.encode, allowed_special=self.allowed_special), "zh", token_max_n=40,
+                                                token_min_n=20, merge_len=10,
                                                 comma_split=False)]
         else:
             text = spell_out_number(text, self.inflect_parser)
-            texts = [i for i in split_paragraph(text, partial(self.tokenizer.encode, allowed_special=self.allowed_special), "en", token_max_n=80,
-                                                token_min_n=60, merge_len=20,
+            texts = [i for i in split_paragraph(text, partial(self.tokenizer.encode, allowed_special=self.allowed_special), "en", token_max_n=40,
+                                                token_min_n=20, merge_len=10,
                                                 comma_split=False)]
         if split is False:
             return text
