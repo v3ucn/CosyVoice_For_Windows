@@ -12,6 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import os
+os.environ['MODELSCOPE_CACHE'] ='./.cache/modelscope'
+os.environ['TORCH_HOME'] = './.cache/torch'  #设置torch的缓存目录
+os.environ["HF_HOME"] = "./.cache/huggingface" #设置transformer的缓存目录
+os.environ['XDG_CACHE_HOME']="./.cache"
 import sys
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append('{}/third_party/AcademiCodec'.format(ROOT_DIR))
@@ -33,6 +37,28 @@ from cosyvoice.utils.file_utils import load_wav
 
 logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s %(levelname)s %(message)s')
+
+
+reference_wavs = ["请选择参考音频或者自己上传"]
+for name in os.listdir("./参考音频/"):
+    reference_wavs.append(name)
+
+
+def change_choices():
+
+    reference_wavs = ["选择参考音频,或者自己上传"]
+
+    for name in os.listdir("./参考音频/"):
+        reference_wavs.append(name)
+    
+    return {"choices":reference_wavs, "__type__": "update"}
+
+
+def change_wav(audio_path):
+
+    text = audio_path.replace(".wav","").replace(".mp3","")
+
+    return f"./参考音频/{audio_path}",text
 
 def generate_seed():
     seed = random.randint(1, 100000000)
@@ -152,10 +178,15 @@ def main():
                 seed = gr.Number(value=0, label="随机推理种子")
 
         with gr.Row():
+            wavs_dropdown = gr.Dropdown(label="参考音频列表",choices=reference_wavs,value="请选择参考音频或者自己上传",interactive=True)
+            refresh_button = gr.Button("刷新参考音频")
+            refresh_button.click(fn=change_choices, inputs=[], outputs=[wavs_dropdown])
             prompt_wav_upload = gr.Audio(sources='upload', type='filepath', label='选择prompt音频文件，注意采样率不低于16khz')
             prompt_wav_record = gr.Audio(sources='microphone', type='filepath', label='录制prompt音频文件')
         prompt_text = gr.Textbox(label="输入prompt文本", lines=1, placeholder="请输入prompt文本，需与prompt音频内容一致，暂时不支持自动识别...", value='')
         instruct_text = gr.Textbox(label="输入instruct文本", lines=1, placeholder="请输入instruct文本.", value='')
+
+        wavs_dropdown.change(change_wav,[wavs_dropdown],[prompt_wav_upload,prompt_text])
 
         generate_button = gr.Button("生成音频")
 

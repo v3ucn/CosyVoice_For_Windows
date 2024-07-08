@@ -10,8 +10,8 @@ SET PYTHON_BIN_PATH=%PYTHON_EXECUTABLE%
 SET PYTHON_LIB_PATH=%PYTHON_PATH%\Lib\site-packages
 SET FFMPEG_PATH=%cd%\py311\ffmpeg\bin
 SET PATH=%PYTHON_PATH%;%PYTHON_PATH%\Scripts;%FFMPEG_PATH%;%PATH%
-set HF_ENDPOINT=https://hf-mirror.com
-set HF_HOME=%CD%\hf_download
+@REM set HF_ENDPOINT=https://hf-mirror.com
+@REM set HF_HOME=%CD%\hf_download
 set PYTHONPATH=third_party/AcademiCodec;third_party/Matcha-TTS
-"%PYTHON_EXECUTABLE%" webui.py --port 9886 --model_dir ./pretrained_models/CosyVoice-300M
+"%PYTHON_EXECUTABLE%" webui.py --port 9886 --model_dir speech_tts/CosyVoice-300M
 pause
