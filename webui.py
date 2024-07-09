@@ -12,14 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import os
-os.environ['MODELSCOPE_CACHE'] ='./.cache/modelscope'
-os.environ['TORCH_HOME'] = './.cache/torch'  #设置torch的缓存目录
-os.environ["HF_HOME"] = "./.cache/huggingface" #设置transformer的缓存目录
-os.environ['XDG_CACHE_HOME']="./.cache"
+os.environ['CURL_CA_BUNDLE'] = ''
+os.environ['HF_DATASETS_OFFLINE'] = '1'
+# os.environ['MODELSCOPE_CACHE'] ='./.cache/modelscope'
+# os.environ['TORCH_HOME'] = './.cache/torch'  #设置torch的缓存目录
+# os.environ["HF_HOME"] = "./.cache/huggingface" #设置transformer的缓存目录
+# os.environ['XDG_CACHE_HOME']="./.cache"
 import sys
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append('{}/third_party/AcademiCodec'.format(ROOT_DIR))
 sys.path.append('{}/third_party/Matcha-TTS'.format(ROOT_DIR))
+
+import shutil
 
 import argparse
 import gradio as gr
@@ -28,6 +32,7 @@ import torch
 import torchaudio
 import random
 import librosa
+
 
 import logging
 logging.getLogger('matplotlib').setLevel(logging.WARNING)
@@ -42,6 +47,23 @@ logging.basicConfig(level=logging.DEBUG,
 reference_wavs = ["请选择参考音频或者自己上传"]
 for name in os.listdir("./参考音频/"):
     reference_wavs.append(name)
+
+spk_new = ["无"]
+
+for name in os.listdir("./voices/"):
+    print(name.replace(".py",""))
+    spk_new.append(name.replace(".py",""))
+
+
+def refresh_choices():
+
+    spk_new = ["无"]
+
+    for name in os.listdir("./voices/"):
+        print(name.replace(".py",""))
+        spk_new.append(name.replace(".py",""))
+    
+    return {"choices":spk_new, "__type__": "update"}
 
 
 def change_choices():
@@ -59,6 +81,18 @@ def change_wav(audio_path):
     text = audio_path.replace(".wav","").replace(".mp3","")
 
     return f"./参考音频/{audio_path}",text
+
+
+def save_name(name):
+
+    if not name or name == "":
+        gr.Info("音色名称不能为空")
+        return False
+
+    shutil.copyfile("./output.py",f"./voices/{name}.py")
+    gr.Info("音色保存成功,存放位置为voices目录")
+
+    
 
 def generate_seed():
     seed = random.randint(1, 100000000)
@@ -93,7 +127,7 @@ instruct_dict = {'预训练音色': '1. 选择预训练音色\n2.点击生成音
 def change_instruction(mode_checkbox_group):
     return instruct_dict[mode_checkbox_group]
 
-def generate_audio(tts_text, mode_checkbox_group, sft_dropdown, prompt_text, prompt_wav_upload, prompt_wav_record, instruct_text, seed):
+def generate_audio(tts_text, mode_checkbox_group, sft_dropdown, prompt_text, prompt_wav_upload, prompt_wav_record, instruct_text, seed,new_dropdown):
     if prompt_wav_upload is not None:
         prompt_wav = prompt_wav_upload
     elif prompt_wav_record is not None:
@@ -144,7 +178,7 @@ def generate_audio(tts_text, mode_checkbox_group, sft_dropdown, prompt_text, pro
     if mode_checkbox_group == '预训练音色':
         logging.info('get sft inference request')
         set_all_random_seed(seed)
-        output = cosyvoice.inference_sft(tts_text, sft_dropdown)
+        output = cosyvoice.inference_sft(tts_text,sft_dropdown,new_dropdown)
     elif mode_checkbox_group == '3s极速复刻':
         logging.info('get zero_shot inference request')
         prompt_speech_16k = postprocess(load_wav(prompt_wav, prompt_sr))
@@ -173,6 +207,9 @@ def main():
             mode_checkbox_group = gr.Radio(choices=inference_mode_list, label='选择推理模式', value=inference_mode_list[0])
             instruction_text = gr.Text(label="操作步骤", value=instruct_dict[inference_mode_list[0]], scale=0.5)
             sft_dropdown = gr.Dropdown(choices=sft_spk, label='选择预训练音色', value=sft_spk[0], scale=0.25)
+            new_dropdown = gr.Dropdown(choices=spk_new, label='选择新增音色', value=spk_new[0],interactive=True)
+            refresh_new_button = gr.Button("刷新新增音色")
+            refresh_new_button.click(fn=refresh_choices, inputs=[], outputs=[new_dropdown])
             with gr.Column(scale=0.25):
                 seed_button = gr.Button(value="\U0001F3B2")
                 seed = gr.Number(value=0, label="随机推理种子")
@@ -186,6 +223,12 @@ def main():
         prompt_text = gr.Textbox(label="输入prompt文本", lines=1, placeholder="请输入prompt文本，需与prompt音频内容一致，暂时不支持自动识别...", value='')
         instruct_text = gr.Textbox(label="输入instruct文本", lines=1, placeholder="请输入instruct文本.", value='')
 
+        new_name = gr.Textbox(label="输入新的音色名称", lines=1, placeholder="输入新的音色名称.", value='')
+
+        save_button = gr.Button("保存刚刚推理的zero-shot音色")
+
+        save_button.click(save_name, inputs=[new_name])
+
         wavs_dropdown.change(change_wav,[wavs_dropdown],[prompt_wav_upload,prompt_text])
 
         generate_button = gr.Button("生成音频")
@@ -194,7 +237,7 @@ def main():
 
         seed_button.click(generate_seed, inputs=[], outputs=seed)
         generate_button.click(generate_audio,
-                              inputs=[tts_text, mode_checkbox_group, sft_dropdown, prompt_text, prompt_wav_upload, prompt_wav_record, instruct_text, seed],
+                              inputs=[tts_text, mode_checkbox_group, sft_dropdown, prompt_text, prompt_wav_upload, prompt_wav_record, instruct_text, seed,new_dropdown],
                               outputs=[audio_output])
         mode_checkbox_group.change(fn=change_instruction, inputs=[mode_checkbox_group], outputs=[instruction_text])
     demo.queue(max_size=4, default_concurrency_limit=2)

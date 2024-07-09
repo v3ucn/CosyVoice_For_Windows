@@ -100,6 +100,7 @@ class CosyVoiceFrontEnd:
                                                 token_min_n=20, merge_len=10,
                                                 comma_split=False)]
         else:
+            text += '.'
             text = spell_out_number(text, self.inflect_parser)
             texts = [i for i in split_paragraph(text, partial(self.tokenizer.encode, allowed_special=self.allowed_special), "en", token_max_n=40,
                                                 token_min_n=20, merge_len=10,
