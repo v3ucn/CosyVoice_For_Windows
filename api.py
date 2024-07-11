@@ -13,6 +13,7 @@ import torchaudio
 from cosyvoice.cli.cosyvoice import CosyVoice
 from cosyvoice.utils.file_utils import load_wav
 import torchaudio
+import ffmpeg
 
 from flask_cors import CORS
 
@@ -35,6 +36,33 @@ CORS(app, cors_allowed_origins="*")
 
 CORS(app, supports_credentials=True)
 
+
+def speed_change(input_audio: np.ndarray, speed: float, sr: int):
+    # 检查输入数据类型和声道数
+    if input_audio.dtype != np.int16:
+        raise ValueError("输入音频数据类型必须为 np.int16")
+
+
+    # 转换为字节流
+    raw_audio = input_audio.astype(np.int16).tobytes()
+
+    # 设置 ffmpeg 输入流
+    input_stream = ffmpeg.input('pipe:', format='s16le', acodec='pcm_s16le', ar=str(sr), ac=1)
+
+    # 变速处理
+    output_stream = input_stream.filter('atempo', speed)
+
+    # 输出流到管道
+    out, _ = (
+        output_stream.output('pipe:', format='s16le', acodec='pcm_s16le')
+        .run(input=raw_audio, capture_stdout=True, capture_stderr=True)
+    )
+
+    # 将管道输出解码为 NumPy 数组
+    processed_audio = np.frombuffer(out, np.int16)
+
+    return processed_audio
+
 @app.route("/", methods=['POST'])
 def sft_post():
     question_data = request.get_json()
@@ -42,6 +70,9 @@ def sft_post():
     text = question_data.get('text')
     speaker = question_data.get('speaker')
     new = question_data.get('new',0)
+
+    speed = request.args.get('speed',1.0)
+    speed = float(speed)
     
 
     if not text:
@@ -58,7 +89,19 @@ def sft_post():
     end = time.process_time()
     print("infer time:", end - start)
     buffer = io.BytesIO()
-    torchaudio.save(buffer, output['tts_speech'], 22050, format="wav")
+    if speed != 1.0:
+        try:
+            numpy_array = output['tts_speech'].numpy()
+            audio = (numpy_array * 32768).astype(np.int16) 
+            audio_data = speed_change(audio, speed=speed, sr=int(22050))
+            audio_data = torch.from_numpy(audio_data)
+            audio_data = audio_data.reshape(1, -1)
+        except Exception as e:
+            print(f"Failed to change speed of audio: \n{e}")
+    else:
+        audio_data = output['tts_speech']
+
+    torchaudio.save(buffer,audio_data, 22050, format="wav")
     buffer.seek(0)
     return Response(buffer.read(), mimetype="audio/wav")
 
@@ -69,6 +112,8 @@ def sft_get():
     text = request.args.get('text')
     speaker = request.args.get('speaker')
     new = request.args.get('new',0)
+    speed = request.args.get('speed',1.0)
+    speed = float(speed)
 
     if not text:
         return {"error": "文本不能为空"}, 400
@@ -84,7 +129,20 @@ def sft_get():
     end = time.process_time()
     print("infer time:", end - start)
     buffer = io.BytesIO()
-    torchaudio.save(buffer, output['tts_speech'], 22050, format="wav")
+
+    if speed != 1.0:
+        try:
+            numpy_array = output['tts_speech'].numpy()
+            audio = (numpy_array * 32768).astype(np.int16) 
+            audio_data = speed_change(audio, speed=speed, sr=int(22050))
+            audio_data = torch.from_numpy(audio_data)
+            audio_data = audio_data.reshape(1, -1)
+        except Exception as e:
+            print(f"Failed to change speed of audio: \n{e}")
+    else:
+        audio_data = output['tts_speech']
+
+    torchaudio.save(buffer,audio_data, 22050, format="wav")
     buffer.seek(0)
     return Response(buffer.read(), mimetype="audio/wav")
 
@@ -101,6 +159,8 @@ def tts_to_audio():
     text = question_data.get('text')
     speaker = speaker_config.speaker
     new = speaker_config.new
+
+    speed = speaker_config.speed
     
 
     if not text:
@@ -117,7 +177,19 @@ def tts_to_audio():
     end = time.process_time()
     print("infer time:", end - start)
     buffer = io.BytesIO()
-    torchaudio.save(buffer, output['tts_speech'], 22050, format="wav")
+    if speed != 1.0:
+        try:
+            numpy_array = output['tts_speech'].numpy()
+            audio = (numpy_array * 32768).astype(np.int16) 
+            audio_data = speed_change(audio, speed=speed, sr=int(22050))
+            audio_data = torch.from_numpy(audio_data)
+            audio_data = audio_data.reshape(1, -1)
+        except Exception as e:
+            print(f"Failed to change speed of audio: \n{e}")
+    else:
+        audio_data = output['tts_speech']
+
+    torchaudio.save(buffer,audio_data, 22050, format="wav")
     buffer.seek(0)
     return Response(buffer.read(), mimetype="audio/wav")
 
