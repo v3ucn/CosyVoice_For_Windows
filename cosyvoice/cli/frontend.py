@@ -23,6 +23,73 @@ import os
 import inflect
 # import ttsfrd
 from cosyvoice.utils.frontend_utils import contains_chinese, replace_blank, replace_corner_mark, remove_bracket, spell_out_number, split_paragraph
+import re
+import jieba.posseg as pseg
+
+def text_normalize(text):
+    """
+    对文本进行归一化处理
+    :param text:
+    :return:
+    """
+    from .zh_normalization import TextNormalizer
+    # ref: https://github.com/PaddlePaddle/PaddleSpeech/tree/develop/paddlespeech/t2s/frontend/zh_normalization
+    tx = TextNormalizer()
+    sentences = tx.normalize(text)
+    # print(sentences)
+
+    _txt = ''.join(sentences)
+    # 替换掉除中文之外的所有字符
+    # _txt = re.sub(
+    #     r"[^\u4e00-\u9fa5，。！？、]+", "", _txt
+    # )
+
+    return _txt
+
+def remove_chinese_punctuation(text):
+    """
+    移除文本中的中文标点符号 [：；！（），【】『』「」《》－‘“’”:,;!\(\)\[\]><\-] 替换为 ，
+    :param text:
+    :return:
+    """
+    chinese_punctuation_pattern = r"[：；！（），【】『』「」《》－‘“’”:,;!\(\)\[\]><\-·]"
+    text = re.sub(chinese_punctuation_pattern, '，', text)
+    # 使用正则表达式将多个连续的句号替换为一个句号
+    text = re.sub(r'[。，]{2,}', '。', text)
+    # 删除开头和结尾的 ， 号
+    text = re.sub(r'^，|，$', '', text)
+    return text
+
+def normalize_zh(text):
+    return process_ddd(text_normalize(remove_chinese_punctuation(text)))
+
+
+def process_ddd(text):
+    """
+    处理“地”、“得” 字的使用，都替换为“的”
+    依据：地、得的使用，主要是在动词和形容词前后，本方法没有严格按照语法替换，因为时常遇到用错的情况。
+    另外受 jieba 分词准确率的影响，部分情况下可能会出漏掉。例如：小红帽疑惑地问
+    :param text: 输入的文本
+    :return: 处理后的文本
+    """
+    word_list = [(word, flag) for word, flag in pseg.cut(text, use_paddle=False)]
+    # print(word_list)
+    processed_words = []
+    for i, (word, flag) in enumerate(word_list):
+        if word in ["地", "得"]:
+            # Check previous and next word's flag
+            # prev_flag = word_list[i - 1][1] if i > 0 else None
+            # next_flag = word_list[i + 1][1] if i + 1 < len(word_list) else None
+
+            # if prev_flag in ['v', 'a'] or next_flag in ['v', 'a']:
+            if flag in ['uv', 'ud']:
+                processed_words.append("的")
+            else:
+                processed_words.append(word)
+        else:
+            processed_words.append(word)
+
+    return ''.join(processed_words)
 
 
 class CosyVoiceFrontEnd:
@@ -40,7 +107,7 @@ class CosyVoiceFrontEnd:
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         option = onnxruntime.SessionOptions()
         option.graph_optimization_level = onnxruntime.GraphOptimizationLevel.ORT_ENABLE_ALL
-        option.intra_op_num_threads = 1
+        option.intra_op_num_threads = 8
         self.campplus_session = onnxruntime.InferenceSession(campplus_model, sess_options=option, providers=["CPUExecutionProvider"])
         self.speech_tokenizer_session = onnxruntime.InferenceSession(speech_tokenizer_model, sess_options=option, providers=["CUDAExecutionProvider"if torch.cuda.is_available() else "CPUExecutionProvider"])
         if os.path.exists(spk2info):
@@ -50,10 +117,7 @@ class CosyVoiceFrontEnd:
         self.inflect_parser = inflect.engine()
         self.frd = None
         ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
-        # assert self.frd.initialize('{}/../../pretrained_models/speech_kantts_ttsfrd/resource'.format(ROOT_DIR)) is True, 'failed to initialize ttsfrd resource'
-        # self.frd.set_lang_type('pinyin')
-        # self.frd.enable_pinyin_mix(True)
-        # self.frd.set_breakmodel_index(1)
+
 
     def _extract_text_token(self, text):
         text_token = self.tokenizer.encode(text, allowed_special=self.allowed_special)
@@ -91,19 +155,20 @@ class CosyVoiceFrontEnd:
             # text = self.frd.get_frd_extra_info(text, 'input').replace("\n", "")
             text += '.。'
             text = text.replace("\n", "")
+            text = normalize_zh(text)
             text = replace_blank(text)
             text = replace_corner_mark(text)
             text = text.replace(".", "、")
             text = text.replace(" - ", "，")
             text = remove_bracket(text)
-            texts = [i for i in split_paragraph(text, partial(self.tokenizer.encode, allowed_special=self.allowed_special), "zh", token_max_n=40,
-                                                token_min_n=20, merge_len=10,
+            texts = [i for i in split_paragraph(text, partial(self.tokenizer.encode, allowed_special=self.allowed_special), "zh", token_max_n=30,
+                                                token_min_n=20, merge_len=5,
                                                 comma_split=False)]
         else:
             text += '.'
             text = spell_out_number(text, self.inflect_parser)
-            texts = [i for i in split_paragraph(text, partial(self.tokenizer.encode, allowed_special=self.allowed_special), "en", token_max_n=40,
-                                                token_min_n=20, merge_len=10,
+            texts = [i for i in split_paragraph(text, partial(self.tokenizer.encode, allowed_special=self.allowed_special), "en", token_max_n=30,
+                                                token_min_n=20, merge_len=5,
                                                 comma_split=False)]
         if split is False:
             return text

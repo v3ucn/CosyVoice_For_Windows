@@ -24,10 +24,6 @@ class CosyVoiceModel:
         self.flow = flow
         self.hift = hift
 
-    def clear_cache(self):
-        # 清理未使用的缓存
-        torch.cuda.empty_cache()
-
     def load(self, llm_model, flow_model, hift_model):
         self.llm.load_state_dict(torch.load(llm_model, map_location=self.device))
         self.llm.to(self.device).eval()
@@ -60,4 +56,5 @@ class CosyVoiceModel:
                                       prompt_feat_len=prompt_speech_feat_len.to(self.device),
                                       embedding=flow_embedding.to(self.device))
         tts_speech = self.hift.inference(mel=tts_mel).cpu()
+        torch.cuda.empty_cache()
         return {'tts_speech': tts_speech}

@@ -22,3 +22,5 @@ soundfile==0.12.1
 tensorboard==2.14.0
 wget==3.2
 PySoundFile
+pypinyin
+jieba

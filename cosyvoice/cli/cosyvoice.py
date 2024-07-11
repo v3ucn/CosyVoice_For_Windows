@@ -64,9 +64,9 @@ class CosyVoice:
                 model_input["llm_embedding"] = newspk["llm_embedding"]
 
             model_output = self.model.inference(**model_input)
-            print(model_input)
+            # print(model_input)
             tts_speeches.append(model_output['tts_speech'])
-        self.model.clear_cache()
+
         return {'tts_speech': torch.concat(tts_speeches, dim=1)}
 
     def inference_zero_shot(self, tts_text, prompt_text, prompt_speech_16k):
@@ -81,7 +81,7 @@ class CosyVoice:
                 f.write(str(save_input))
             model_output = self.model.inference(**model_input)
             tts_speeches.append(model_output['tts_speech'])
-        self.model.clear_cache()
+
         return {'tts_speech': torch.concat(tts_speeches, dim=1)}
 
     def inference_cross_lingual(self, tts_text, prompt_speech_16k):
@@ -92,7 +92,7 @@ class CosyVoice:
             model_input = self.frontend.frontend_cross_lingual(i, prompt_speech_16k)
             model_output = self.model.inference(**model_input)
             tts_speeches.append(model_output['tts_speech'])
-        self.model.clear_cache()
+
         return {'tts_speech': torch.concat(tts_speeches, dim=1)}
 
     def inference_instruct(self, tts_text, spk_id, instruct_text):
@@ -104,5 +104,5 @@ class CosyVoice:
             model_input = self.frontend.frontend_instruct(i, spk_id, instruct_text)
             model_output = self.model.inference(**model_input)
             tts_speeches.append(model_output['tts_speech'])
-        self.model.clear_cache()
+
         return {'tts_speech': torch.concat(tts_speeches, dim=1)}
