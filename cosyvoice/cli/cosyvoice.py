@@ -55,13 +55,31 @@ class CosyVoice:
         tts_speeches = []
         for i in self.frontend.text_normalize(tts_text, split=True):
             model_input = self.frontend.frontend_sft(i, spk_id)
+            #print(model_input)
             print(i)
+            # with open(r'srt_model_input.txt', 'a',encoding='utf-8') as f:
+            #     f.write(str(model_input))
             if new_dropdown != "无":
-                with open(f'./voices/{new_dropdown}.py','r',encoding='utf-8') as f:
-                    newspk = f.read()
-                    newspk = eval(newspk.replace("tensor","torch.tensor"))
+                # 加载数据
+                print(new_dropdown)
+                print("读取pt")
+                newspk = torch.load(f'./voices/{new_dropdown}.pt')
+                # with open(f'./voices/{new_dropdown}.py','r',encoding='utf-8') as f:
+                #     newspk = f.read()
+                #     newspk = eval(newspk)
                 model_input["flow_embedding"] = newspk["flow_embedding"]
                 model_input["llm_embedding"] = newspk["llm_embedding"]
+
+                model_input["llm_prompt_speech_token"] = newspk["llm_prompt_speech_token"]
+                model_input["llm_prompt_speech_token_len"] = newspk["llm_prompt_speech_token_len"]
+
+                model_input["flow_prompt_speech_token"] = newspk["flow_prompt_speech_token"]
+                model_input["flow_prompt_speech_token_len"] = newspk["flow_prompt_speech_token_len"]
+
+                model_input["prompt_speech_feat_len"] = newspk["prompt_speech_feat_len"]
+                model_input["prompt_speech_feat"] = newspk["prompt_speech_feat"]
+                model_input["prompt_text"] = newspk["prompt_text"]
+                model_input["prompt_text_len"] = newspk["prompt_text_len"]
 
             model_output = self.model.inference(**model_input)
             # print(model_input)
@@ -74,11 +92,14 @@ class CosyVoice:
         tts_speeches = []
         for i in self.frontend.text_normalize(tts_text, split=True):
             model_input = self.frontend.frontend_zero_shot(i, prompt_text, prompt_speech_16k)
-            save_input = {}
-            save_input["flow_embedding"] = model_input["flow_embedding"]
-            save_input["llm_embedding"] = model_input["llm_embedding"]
-            with open(r'./output.py', 'w',encoding='utf-8') as f:
-                f.write(str(save_input))
+            # save_input = {}
+            # save_input["flow_embedding"] = model_input["flow_embedding"]
+            # save_input["llm_embedding"] = model_input["llm_embedding"]
+            # with open(r'./output.py', 'w',encoding='utf-8') as f:
+            #     f.write(str(model_input))
+
+            # 保存数据
+            torch.save(model_input, 'output.pt') 
             model_output = self.model.inference(**model_input)
             tts_speeches.append(model_output['tts_speech'])
 

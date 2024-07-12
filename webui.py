@@ -79,8 +79,8 @@ for name in os.listdir("./参考音频/"):
 spk_new = ["无"]
 
 for name in os.listdir("./voices/"):
-    print(name.replace(".py",""))
-    spk_new.append(name.replace(".py",""))
+    # print(name.replace(".pt",""))
+    spk_new.append(name.replace(".pt",""))
 
 
 def refresh_choices():
@@ -88,8 +88,8 @@ def refresh_choices():
     spk_new = ["无"]
 
     for name in os.listdir("./voices/"):
-        print(name.replace(".py",""))
-        spk_new.append(name.replace(".py",""))
+        # print(name.replace(".pt",""))
+        spk_new.append(name.replace(".pt",""))
     
     return {"choices":spk_new, "__type__": "update"}
 
@@ -117,7 +117,7 @@ def save_name(name):
         gr.Info("音色名称不能为空")
         return False
 
-    shutil.copyfile("./output.py",f"./voices/{name}.py")
+    shutil.copyfile("./output.pt",f"./voices/{name}.pt")
     gr.Info("音色保存成功,存放位置为voices目录")
 
     
