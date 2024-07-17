@@ -220,7 +220,7 @@ def generate_audio(tts_text, mode_checkbox_group, sft_dropdown, prompt_text, pro
     else:
         logging.info('get instruct inference request')
         set_all_random_seed(seed)
-        output = cosyvoice.inference_instruct(tts_text, sft_dropdown, instruct_text)
+        output = cosyvoice.inference_instruct(tts_text, sft_dropdown, instruct_text,new_dropdown)
 
     
     if speed_factor != 1.0:
@@ -235,6 +235,68 @@ def generate_audio(tts_text, mode_checkbox_group, sft_dropdown, prompt_text, pro
 
 
     return (target_sr, audio_data)
+
+
+def generate_audio_stream(tts_text, mode_checkbox_group, sft_dropdown, prompt_text, prompt_wav_upload, prompt_wav_record, instruct_text, seed,speed_factor,new_dropdown):
+
+    if mode_checkbox_group != '预训练音色':
+        gr.Warning('流式推理只支持预训练音色推理')
+        return (target_sr, default_data)
+    #     logging.info('get sft inference request')
+    #     set_all_random_seed(seed)
+    #     # output = next(cosyvoice.inference_sft_stream(tts_text,sft_dropdown,new_dropdown))
+    #     yield output
+
+    spk_id = sft_dropdown
+
+    if new_dropdown != "无":
+        spk_id = "中文女"
+
+    joblist = cosyvoice.frontend.text_normalize_stream(tts_text, split=True)
+
+    
+    for i in joblist:
+        print(i)
+        tts_speeches = []
+        model_input = cosyvoice.frontend.frontend_sft(i, spk_id)
+        if new_dropdown != "无":
+            # 加载数据
+            print(new_dropdown)
+            print("读取pt")
+            newspk = torch.load(f'./voices/{new_dropdown}.pt')
+            # with open(f'./voices/{new_dropdown}.py','r',encoding='utf-8') as f:
+            #     newspk = f.read()
+            #     newspk = eval(newspk)
+            model_input["flow_embedding"] = newspk["flow_embedding"]
+            model_input["llm_embedding"] = newspk["llm_embedding"]
+
+            model_input["llm_prompt_speech_token"] = newspk["llm_prompt_speech_token"]
+            model_input["llm_prompt_speech_token_len"] = newspk["llm_prompt_speech_token_len"]
+
+            model_input["flow_prompt_speech_token"] = newspk["flow_prompt_speech_token"]
+            model_input["flow_prompt_speech_token_len"] = newspk["flow_prompt_speech_token_len"]
+
+            model_input["prompt_speech_feat_len"] = newspk["prompt_speech_feat_len"]
+            model_input["prompt_speech_feat"] = newspk["prompt_speech_feat"]
+            model_input["prompt_text"] = newspk["prompt_text"]
+            model_input["prompt_text_len"] = newspk["prompt_text_len"]
+
+        model_output = next(cosyvoice.model.inference_stream(**model_input))
+        # print(model_input)
+        tts_speeches.append(model_output['tts_speech'])
+        output = torch.concat(tts_speeches, dim=1)
+
+        if speed_factor != 1.0:
+            try:
+                numpy_array = output.numpy()
+                audio = (numpy_array * 32768).astype(np.int16) 
+                audio_data = speed_change(audio, speed=speed_factor, sr=int(target_sr))
+            except Exception as e:
+                print(f"Failed to change speed of audio: \n{e}")
+        else:
+            audio_data = output.numpy().flatten()
+
+        yield (target_sr, audio_data)
 
 def main():
     with gr.Blocks() as demo:
@@ -273,11 +335,23 @@ def main():
         wavs_dropdown.change(change_wav,[wavs_dropdown],[prompt_wav_upload,prompt_text])
 
         generate_button = gr.Button("生成音频")
+        generate_button_stream = gr.Button("流式生成")
 
-        audio_output = gr.Audio(label="合成音频")
+        # audio_output = gr.Audio(label="合成音频")
+        audio_output = gr.Audio(label="合成音频",value=None,
+            streaming=True,
+            autoplay=True,  # disable auto play for Windows, due to https://developer.chrome.com/blog/autoplay#webaudio
+            interactive=False,
+            show_label=True,show_download_button=True)
+        
+        # result2 = gr.Textbox(label="翻译结果(会在项目目录生成two.srt/two.srt is generated in the current directory)")
 
         seed_button.click(generate_seed, inputs=[], outputs=seed)
         generate_button.click(generate_audio,
+                              inputs=[tts_text, mode_checkbox_group, sft_dropdown, prompt_text, prompt_wav_upload, prompt_wav_record, instruct_text, seed,speed_factor,new_dropdown],
+                              outputs=[audio_output])
+
+        generate_button_stream.click(generate_audio_stream,
                               inputs=[tts_text, mode_checkbox_group, sft_dropdown, prompt_text, prompt_wav_upload, prompt_wav_record, instruct_text, seed,speed_factor,new_dropdown],
                               outputs=[audio_output])
         mode_checkbox_group.change(fn=change_instruction, inputs=[mode_checkbox_group], outputs=[instruction_text])

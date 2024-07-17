@@ -174,6 +174,56 @@ class CosyVoiceFrontEnd:
             return text
         return texts
 
+    def text_normalize_stream(self, text, split=True):
+        text = text.strip()
+        if contains_chinese(text):
+            # text = self.frd.get_frd_extra_info(text, 'input').replace("\n", "")
+            text += '.。'
+            text = text.replace("\n", "")
+            text = normalize_zh(text)
+            text = replace_blank(text)
+            text = replace_corner_mark(text)
+            text = text.replace(".", "、")
+            text = text.replace(" - ", "，")
+            text = remove_bracket(text)
+            texts = [i for i in split_paragraph(text, partial(self.tokenizer.encode, allowed_special=self.allowed_special), "zh", token_max_n=30,
+                                                token_min_n=20, merge_len=5,
+                                                comma_split=True)]
+        else:
+            text += '.'
+            text = spell_out_number(text, self.inflect_parser)
+            texts = [i for i in split_paragraph(text, partial(self.tokenizer.encode, allowed_special=self.allowed_special), "en", token_max_n=30,
+                                                token_min_n=20, merge_len=5,
+                                                comma_split=True)]
+        if split is False:
+            return text
+        return texts
+
+    def text_normalize_instruct(self, text, split=True):
+        text = text.strip()
+        if contains_chinese(text):
+            # text = self.frd.get_frd_extra_info(text, 'input').replace("\n", "")
+            text += '.。'
+            text = text.replace("\n", "")
+            # text = normalize_zh(text)
+            text = replace_blank(text)
+            text = replace_corner_mark(text)
+            text = text.replace(".", "、")
+            text = text.replace(" - ", "，")
+            text = remove_bracket(text)
+            texts = [i for i in split_paragraph(text, partial(self.tokenizer.encode, allowed_special=self.allowed_special), "zh", token_max_n=30,
+                                                token_min_n=20, merge_len=5,
+                                                comma_split=False)]
+        else:
+            text += '.'
+            text = spell_out_number(text, self.inflect_parser)
+            texts = [i for i in split_paragraph(text, partial(self.tokenizer.encode, allowed_special=self.allowed_special), "en", token_max_n=30,
+                                                token_min_n=20, merge_len=5,
+                                                comma_split=False)]
+        if split is False:
+            return text
+        return texts
+
     def frontend_sft(self, tts_text, spk_id):
         tts_text_token, tts_text_token_len = self._extract_text_token(tts_text)
         embedding = self.spk2info[spk_id]['embedding']
