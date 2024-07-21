@@ -22,7 +22,6 @@ from torch.nn.utils.rnn import pad_sequence
 import torch.nn.functional as F
 
 torchaudio.set_audio_backend('soundfile')
-# torchaudio.utils.sox_utils.set_buffer_size(16500)
 
 AUDIO_FORMAT_SETS = set(['flac', 'mp3', 'm4a', 'ogg', 'opus', 'wav', 'wma'])
 
@@ -106,7 +105,7 @@ def filter(data,
         yield sample
 
 
-def resample(data, resample_rate=22050, mode='train'):
+def resample(data, resample_rate=22050, min_sample_rate=16000, mode='train'):
     """ Resample data.
         Inplace operation.
 
@@ -123,7 +122,7 @@ def resample(data, resample_rate=22050, mode='train'):
         sample_rate = sample['sample_rate']
         waveform = sample['speech']
         if sample_rate != resample_rate:
-            if sample_rate < resample_rate:
+            if sample_rate < min_sample_rate:
                 continue
             sample['sample_rate'] = resample_rate
             sample['speech'] = torchaudio.transforms.Resample(
@@ -168,7 +167,7 @@ def parse_embedding(data, normalize, mode='train'):
     """
     for sample in data:
         sample['utt_embedding'] = torch.tensor(sample['utt_embedding'], dtype=torch.float32)
-        sample['spk_embedding'] = torch.stack([torch.tensor(i, dtype=torch.float32) for i in sample['spk_embedding']], dim=0).mean(dim=0)
+        sample['spk_embedding'] = torch.tensor(sample['spk_embedding'], dtype=torch.float32)
         if normalize:
             sample['utt_embedding'] = F.normalize(sample['utt_embedding'], dim=0)
             sample['spk_embedding'] = F.normalize(sample['spk_embedding'], dim=0)
@@ -309,7 +308,7 @@ def batch(data, batch_type='static', batch_size=16, max_frames_in_batch=12000, m
             logging.fatal('Unsupported batch type {}'.format(batch_type))
 
 
-def padding(data, mode='train'):
+def padding(data, use_spk_embedding, mode='train'):
     """ Padding the data into training data
 
         Args:
@@ -363,4 +362,8 @@ def padding(data, mode='train'):
                           'tts_index': tts_index,
                           'tts_text_token': tts_text_token,
                           'tts_text_token_len': tts_text_token_len})
+        if use_spk_embedding is True:
+            batch["embedding"] = batch["spk_embedding"]
+        else:
+            batch["embedding"] = batch["utt_embedding"]
         yield batch

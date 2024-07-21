@@ -11,8 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 from __future__ import print_function
+import os,sys
+os.environ["PL_TORCH_DISTRIBUTED_BACKEND"] = "gloo"
 import argparse
 import datetime
 import logging
@@ -21,6 +22,10 @@ from copy import deepcopy
 import torch
 import torch.distributed as dist
 import deepspeed
+
+now_dir = os.getcwd()
+sys.path.append(now_dir)
+sys.path.append("%s/cosyvoice" % (now_dir))
 
 from hyperpyyaml import load_hyperpyyaml
 
@@ -52,7 +57,7 @@ def get_args():
                         help='tensorboard log dir')
     parser.add_argument('--ddp.dist_backend',
                         dest='dist_backend',
-                        default='nccl',
+                        default='gloo',
                         choices=['nccl', 'gloo'],
                         help='distributed backend')
     parser.add_argument('--num_workers',
