@@ -25,6 +25,55 @@ import inflect
 from cosyvoice.utils.frontend_utils import contains_chinese, replace_blank, replace_corner_mark, remove_bracket, spell_out_number, split_paragraph
 import re
 import jieba.posseg as pseg
+import re
+
+splits = {"，", "。", "？", "！", ",", ".", "?", "!", "~", ":", "：", "—", "…", }
+
+
+def get_first(text):
+    pattern = "[" + "".join(re.escape(sep) for sep in splits) + "]"
+    text = re.split(pattern, text)[0].strip()
+    return text
+def split(todo_text):
+    todo_text = todo_text.replace("……", "。").replace("——", "，")
+    if todo_text[-1] not in splits:
+        todo_text += "。"
+    i_split_head = i_split_tail = 0
+    len_text = len(todo_text)
+    todo_texts = []
+    while 1:
+        if i_split_head >= len_text:
+            break  # 结尾一定有标点，所以直接跳出即可，最后一段在上次已加入
+        if todo_text[i_split_head] in splits:
+            i_split_head += 1
+            todo_texts.append(todo_text[i_split_tail:i_split_head])
+            i_split_tail = i_split_head
+        else:
+            i_split_head += 1
+    return todo_texts
+
+def cut5(inp):
+    inp = inp.strip("\n")
+    inps = split(inp)
+    if len(inps) < 2:
+        return inp
+    opts = []
+    summ = 0
+    tmp_str = ""
+    for i in range(len(inps)):
+        summ += len(inps[i])
+        tmp_str += inps[i]
+        if summ > 10:
+            summ = 0
+            opts.append(tmp_str)
+            tmp_str = ""
+    if tmp_str != "":
+        opts.append(tmp_str)
+    # print(opts)
+    if len(opts) > 1 and len(opts[-1]) < 50:  ##如果最后一个太短了，和前一个合一起
+        opts[-2] = opts[-2] + opts[-1]
+        opts = opts[:-1]
+    return opts
 
 def text_normalize(text):
     """
@@ -149,7 +198,7 @@ class CosyVoiceFrontEnd:
         speech_feat_len = torch.tensor([speech_feat.shape[1]], dtype=torch.int32).to(self.device)
         return speech_feat, speech_feat_len
 
-    def text_normalize(self, text, split=True):
+    def text_normalize(self, text, split=True,token_max_n=30,token_min_n=20,merge_len=15):
         text = text.strip()
         if contains_chinese(text):
             # text = self.frd.get_frd_extra_info(text, 'input').replace("\n", "")
@@ -161,17 +210,14 @@ class CosyVoiceFrontEnd:
             text = text.replace(".", "、")
             text = text.replace(" - ", "，")
             text = remove_bracket(text)
-            texts = [i for i in split_paragraph(text, partial(self.tokenizer.encode, allowed_special=self.allowed_special), "zh", token_max_n=30,
-                                                token_min_n=20, merge_len=5,
-                                                comma_split=False)]
+            texts = [i for i in split_paragraph(text, partial(self.tokenizer.encode, allowed_special=self.allowed_special), "zh", token_max_n=token_max_n,token_min_n=token_min_n, merge_len=merge_len,comma_split=True)]
         else:
             text += '.'
             text = spell_out_number(text, self.inflect_parser)
-            texts = [i for i in split_paragraph(text, partial(self.tokenizer.encode, allowed_special=self.allowed_special), "en", token_max_n=30,
-                                                token_min_n=20, merge_len=5,
-                                                comma_split=False)]
+            texts = [i for i in split_paragraph(text, partial(self.tokenizer.encode, allowed_special=self.allowed_special), "en", token_max_n=token_max_n,token_min_n=token_min_n, merge_len=merge_len,comma_split=True)]
         if split is False:
             return text
+        # texts = cut5(text)
         return texts
 
     def text_normalize_stream(self, text, split=True):
@@ -187,13 +233,13 @@ class CosyVoiceFrontEnd:
             text = text.replace(" - ", "，")
             text = remove_bracket(text)
             texts = [i for i in split_paragraph(text, partial(self.tokenizer.encode, allowed_special=self.allowed_special), "zh", token_max_n=30,
-                                                token_min_n=20, merge_len=5,
+                                                token_min_n=20, merge_len=15,
                                                 comma_split=True)]
         else:
             text += '.'
             text = spell_out_number(text, self.inflect_parser)
             texts = [i for i in split_paragraph(text, partial(self.tokenizer.encode, allowed_special=self.allowed_special), "en", token_max_n=30,
-                                                token_min_n=20, merge_len=5,
+                                                token_min_n=20, merge_len=15,
                                                 comma_split=True)]
         if split is False:
             return text
@@ -211,14 +257,14 @@ class CosyVoiceFrontEnd:
             text = text.replace(".", "、")
             text = text.replace(" - ", "，")
             text = remove_bracket(text)
-            texts = [i for i in split_paragraph(text, partial(self.tokenizer.encode, allowed_special=self.allowed_special), "zh", token_max_n=30,
-                                                token_min_n=20, merge_len=5,
+            texts = [i for i in split_paragraph(text, partial(self.tokenizer.encode, allowed_special=self.allowed_special), "zh", token_max_n=80,
+                                                token_min_n=60, merge_len=20,
                                                 comma_split=False)]
         else:
             text += '.'
             text = spell_out_number(text, self.inflect_parser)
-            texts = [i for i in split_paragraph(text, partial(self.tokenizer.encode, allowed_special=self.allowed_special), "en", token_max_n=30,
-                                                token_min_n=20, merge_len=5,
+            texts = [i for i in split_paragraph(text, partial(self.tokenizer.encode, allowed_special=self.allowed_special), "en", token_max_n=80,
+                                                token_min_n=60, merge_len=20,
                                                 comma_split=False)]
         if split is False:
             return text

@@ -119,7 +119,7 @@ def sft_post():
         if new:
             spk_id = "中文女"
 
-        joblist = cosyvoice.frontend.text_normalize_stream(text, split=True)
+        joblist = cosyvoice.frontend.text_normalize_stream(text,True)
 
         def generate():
         

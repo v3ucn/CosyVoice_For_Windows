@@ -35,6 +35,16 @@ def time_it(func):
     return result
   return wrapper
 
+
+def ms_to_srt_time(ms):
+    N = int(ms)
+    hours, remainder = divmod(N, 3600000)
+    minutes, remainder = divmod(remainder, 60000)
+    seconds, milliseconds = divmod(remainder, 1000)
+    timesrt = f"{hours:02d}:{minutes:02d}:{seconds:02d},{milliseconds:03d}"
+    # print(timesrt)
+    return timesrt
+
 class CosyVoice:
 
     def __init__(self, model_dir):
@@ -119,11 +129,14 @@ class CosyVoice:
 
 
     @time_it
-    def inference_sft(self, tts_text, spk_id,new_dropdown):
+    def inference_sft(self, tts_text, spk_id,new_dropdown,spk_mix="无",w1=0.5,w2=0.5,token_max_n=30,token_min_n=20,merge_len=15):
         if new_dropdown != "无":
             spk_id = "中文女"
         tts_speeches = []
-        for i in self.frontend.text_normalize(tts_text, split=True):
+        audio_opt = []
+        audio_samples = 0
+        srtlines = []
+        for i in self.frontend.text_normalize(tts_text,True,token_max_n,token_min_n,merge_len):
             model_input = self.frontend.frontend_sft(i, spk_id)
             #print(model_input)
             print(i)
@@ -133,12 +146,37 @@ class CosyVoice:
                 # 加载数据
                 print(new_dropdown)
                 print("读取pt")
+
                 newspk = torch.load(f'./voices/{new_dropdown}.pt')
+
+                
+
+                if spk_mix != "无":
+
+                    print("融合音色:",spk_mix)
+                    
+                    if spk_mix not in ["中文女","中文男","中文男","日语男","粤语女","粤语女","英文女","英文男","韩语女"]:
+
+                        newspk_1 = torch.load(f'./voices/{spk_mix}.pt')
+                    else:
+                        newspk_1 = self.frontend.frontend_sft(i, spk_mix)
+
+
+
+                    model_input["flow_embedding"] = (newspk["flow_embedding"] * w1) + (newspk_1["flow_embedding"] * w2)
+                    # model_input["llm_embedding"] = (newspk["llm_embedding"] * w1) + (newspk_1["llm_embedding"] * w2)
+
+                else:
+
+                    model_input["flow_embedding"] = newspk["flow_embedding"] 
+                    model_input["llm_embedding"] = newspk["llm_embedding"]
+
+
                 # with open(f'./voices/{new_dropdown}.py','r',encoding='utf-8') as f:
                 #     newspk = f.read()
                 #     newspk = eval(newspk)
-                model_input["flow_embedding"] = newspk["flow_embedding"]
-                model_input["llm_embedding"] = newspk["llm_embedding"]
+                # model_input["flow_embedding"] = newspk["flow_embedding"] * 0.1 + newspk_1["flow_embedding"] * 0.9
+                # model_input["llm_embedding"] = newspk["llm_embedding"] * 0.1 + newspk_1["llm_embedding"] * 0.9
 
                 model_input["llm_prompt_speech_token"] = newspk["llm_prompt_speech_token"]
                 model_input["llm_prompt_speech_token_len"] = newspk["llm_prompt_speech_token_len"]
@@ -153,10 +191,36 @@ class CosyVoice:
 
             model_output = self.model.inference(**model_input)
             # print(model_input)
+
+            print(model_output['tts_speech'])
+
+            # 使用 .numpy() 方法将 tensor 转换为 numpy 数组
+            numpy_array = model_output['tts_speech'].numpy()
+            # 使用 np.ravel() 方法将多维数组展平成一维数组
+            audio = numpy_array.ravel()
+            print(audio)
+            srtline_begin=ms_to_srt_time(audio_samples*1000.0 / 22050)
+            audio_samples += audio.size
+            srtline_end=ms_to_srt_time(audio_samples*1000.0 / 22050)
+            audio_opt.append(audio)
+
+            srtlines.append(f"{len(audio_opt):02d}\n")
+            srtlines.append(srtline_begin+' --> '+srtline_end+"\n")
+
+            srtlines.append(i.replace("、。","")+"\n\n")
+
+            
             
             tts_speeches.append(model_output['tts_speech'])
 
-        return {'tts_speech': torch.concat(tts_speeches, dim=1)}
+        print(tts_speeches)
+        audio_data = torch.concat(tts_speeches, dim=1)
+
+        torchaudio.save("音频输出/output.wav", audio_data, 22050)
+        with open('音频输出/output.srt', 'w', encoding='utf-8') as f:
+            f.writelines(srtlines)
+
+        return {'tts_speech':audio_data}
 
     def inference_zero_shot(self, tts_text, prompt_text, prompt_speech_16k):
         prompt_text = self.frontend.text_normalize(prompt_text, split=False)
