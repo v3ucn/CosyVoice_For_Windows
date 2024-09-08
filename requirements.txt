@@ -25,3 +25,5 @@ PySoundFile
 pypinyin
 jieba
 ffmpeg-python
+flask
+flask-cors
