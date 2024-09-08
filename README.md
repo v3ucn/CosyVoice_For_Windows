@@ -2,7 +2,17 @@
 
 python3 api.py
 
+```
+url接口地址: http://localhost:9880/?text=测试测试，这里是测试&speaker=中文女
+```
 
+```
+字幕文件地址:http://localhost:9880/file/output.srt
+```
+
+```
+音频文件地址:http://localhost:9880/file/output.wav
+```
 
 # CosyVoice
 ## 👉🏻 [CosyVoice Demos](https://fun-audio-llm.github.io/) 👈🏻
