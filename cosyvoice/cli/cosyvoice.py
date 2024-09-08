@@ -130,20 +130,32 @@ class CosyVoice:
 
     @time_it
     def inference_sft(self, tts_text, spk_id,new_dropdown,spk_mix="无",w1=0.5,w2=0.5,token_max_n=30,token_min_n=20,merge_len=15):
-        if new_dropdown != "无":
-            spk_id = "中文女"
+
+        default_voices = ['中文女', '中文男', '日语男', '粤语女', '英文女', '英文男', '韩语女']
+
+        # if new_dropdown != "无":
+        #     spk_id = "中文女"
+
+
         tts_speeches = []
         audio_opt = []
         audio_samples = 0
         srtlines = []
         for i in self.frontend.text_normalize(tts_text,True,token_max_n,token_min_n,merge_len):
-            model_input = self.frontend.frontend_sft(i, spk_id)
+            if spk_id not in default_voices:
+                back_spk_id = "中文女"
+            else:
+                back_spk_id = spk_id
+                
+            model_input = self.frontend.frontend_sft(i, back_spk_id)
             #print(model_input)
             print(i)
             # with open(r'srt_model_input.txt', 'a',encoding='utf-8') as f:
             #     f.write(str(model_input))
-            if new_dropdown != "无":
+            if new_dropdown != "无" or spk_id not in default_voices:
                 # 加载数据
+                if spk_id not in default_voices:
+                    new_dropdown = spk_id
                 print(new_dropdown)
                 print("读取pt")
 

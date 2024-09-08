@@ -6,7 +6,7 @@ sys.path.append('{}/third_party/AcademiCodec'.format(ROOT_DIR))
 sys.path.append('{}/third_party/Matcha-TTS'.format(ROOT_DIR))
 
 import numpy as np
-from flask import Flask, request, Response
+from flask import Flask, request, Response,send_from_directory
 import torch
 import torchaudio
 
@@ -344,6 +344,10 @@ def speakers():
     for x in default_voices:
         voices.append({"name":x,"voice_id":x})
 
+    for name in os.listdir("voices"):
+        name = name.replace(".pt","")
+        voices.append({"name":name,"voice_id":name})
+
     response = app.response_class(
         response=json.dumps(voices),
         status=200,
@@ -361,6 +365,11 @@ def speakers_list():
         mimetype='application/json'
     )
     return response
+
+
+@app.route('/file/<filename>')
+def uploaded_file(filename):
+    return send_from_directory("音频输出", filename)
     
 
 if __name__ == "__main__":
