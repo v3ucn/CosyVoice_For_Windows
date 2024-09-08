@@ -42,10 +42,11 @@ tensorboard
 compile_commands.json
 
 # train/inference files
-*.pt
+# *.pt
 pretrained_models/*
 *_pb2_grpc.py
 *_pb2.py
 .cache/
 
 py311/
+mac/
