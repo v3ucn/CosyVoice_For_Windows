@@ -22,6 +22,8 @@ import json
 
 cosyvoice = CosyVoice('./pretrained_models/CosyVoice-300M')
 
+default_voices = ['中文女', '中文男', '日语男', '粤语女', '英文女', '英文男', '韩语女']
+
 spk_new = []
 
 for name in os.listdir("./voices/"):
@@ -337,8 +339,13 @@ def tts_to_audio():
 @app.route("/speakers", methods=['GET'])
 def speakers():
 
+    voices = []
+
+    for x in default_voices:
+        voices.append({"name":x,"voice_id":x})
+
     response = app.response_class(
-        response=json.dumps([{"name":"default","vid":1}]),
+        response=json.dumps(voices),
         status=200,
         mimetype='application/json'
     )
