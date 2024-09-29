@@ -1,3 +1,19 @@
+# 环境搭建
+
+新版本比官方的更加激进，请确保本地安装 python3.11 版本，因为这个版本的性能有优化
+
+并且确保安装最新的 cuda12.6 和 cudnn 9.4 ，以获得更快的推理速度
+
+```
+pip3 install -r requirements.txt
+```
+
+```
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124
+```
+
+本地设备是 4060-laptop，飞一样的感觉。
+
 # 启动接口服务
 
 python3 api.py

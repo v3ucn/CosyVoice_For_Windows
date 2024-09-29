@@ -34,7 +34,7 @@ from torch.nn.utils import clip_grad_norm_
 from deepspeed.runtime.zero.stage_1_and_2 import estimate_zero2_model_states_mem_needs_all_live
 
 from cosyvoice.dataset.dataset import Dataset
-from cosyvoice.utils.scheduler import WarmupLR, NoamHoldAnnealing
+from cosyvoice.utils.scheduler import WarmupLR, NoamHoldAnnealing, ConstantLR
 
 
 def init_distributed(args):
@@ -69,7 +69,6 @@ def init_dataset_and_dataloader(args, configs):
     return train_dataset, cv_dataset, train_data_loader, cv_data_loader
 
 
-
 def check_modify_and_save_config(args, configs):
     if args.train_engine == "torch_ddp":
         configs['train_conf']["dtype"] = 'fp32'
@@ -84,7 +83,8 @@ def check_modify_and_save_config(args, configs):
             configs['train_conf']["dtype"] = "fp32"
         assert ds_configs["train_micro_batch_size_per_gpu"] == 1
         # if use deepspeed, override ddp config
-        configs['train_conf']['save_per_step'] = int(configs['train_conf']['save_per_step'] * configs['train_conf']['accum_grad'] / ds_configs["gradient_accumulation_steps"])
+        configs['train_conf']['save_per_step'] = int(configs['train_conf']['save_per_step'] *
+                                                     configs['train_conf']['accum_grad'] / ds_configs["gradient_accumulation_steps"])
         configs['train_conf']['accum_grad'] = ds_configs["gradient_accumulation_steps"]
         configs['train_conf']['grad_clip'] = ds_configs["gradient_clipping"]
         configs['train_conf']['log_interval'] = ds_configs["steps_per_print"]
@@ -122,6 +122,9 @@ def init_optimizer_and_scheduler(args, configs, model):
     elif configs['train_conf']['scheduler'] == 'NoamHoldAnnealing':
         scheduler_type = NoamHoldAnnealing
         scheduler = NoamHoldAnnealing(optimizer, **configs['train_conf']['scheduler_conf'])
+    elif configs['train_conf']['scheduler'] == 'constantlr':
+        scheduler_type = ConstantLR
+        scheduler = ConstantLR(optimizer)
     else:
         raise ValueError("unknown scheduler: " + configs['train_conf'])
 

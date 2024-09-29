@@ -4,6 +4,7 @@ import io, os, sys
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append('{}/third_party/AcademiCodec'.format(ROOT_DIR))
 sys.path.append('{}/third_party/Matcha-TTS'.format(ROOT_DIR))
+ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 import numpy as np
 from flask import Flask, request, Response,send_from_directory
@@ -20,13 +21,13 @@ from flask import make_response
 
 import json
 
-cosyvoice = CosyVoice('./pretrained_models/CosyVoice-300M')
+cosyvoice = CosyVoice('pretrained_models/CosyVoice-300M-25Hz')
 
 default_voices = ['中文女', '中文男', '日语男', '粤语女', '英文女', '英文男', '韩语女']
 
 spk_new = []
 
-for name in os.listdir("./voices/"):
+for name in os.listdir(f"{ROOT_DIR}/voices/"):
     print(name.replace(".py",""))
     spk_new.append(name.replace(".py",""))
 
@@ -72,7 +73,6 @@ def sft_post():
 
     text = question_data.get('text')
     speaker = question_data.get('speaker')
-    new = question_data.get('new',0)
     streaming = question_data.get('streaming',0)
 
     speed = request.args.get('speed',1.0)
@@ -88,27 +88,15 @@ def sft_post():
     # 非流式
     if streaming == 0:
 
-        start = time.process_time()
-        if not new:
-            output = cosyvoice.inference_sft(text,speaker,"无")
-        else:
-            output = cosyvoice.inference_sft(text,speaker,speaker)
-        end = time.process_time()
-        print("infer time:", end - start)
         buffer = io.BytesIO()
 
-        if speed != 1.0:
-            try:
-                numpy_array = output['tts_speech'].numpy()
-                audio = (numpy_array * 32768).astype(np.int16) 
-                audio_data = speed_change(audio, speed=speed, sr=int(22050))
-                audio_data = torch.from_numpy(audio_data)
-                audio_data = audio_data.reshape(1, -1)
-            except Exception as e:
-                print(f"Failed to change speed of audio: \n{e}")
-        else:
-            audio_data = output['tts_speech']
+        tts_speeches = []
 
+        for i, j in enumerate(cosyvoice.inference_sft(text,speaker,stream=False,speed=speed,new_dropdown="无")):
+            # torchaudio.save('sft_{}.wav'.format(i), j['tts_speech'], 22050)
+            tts_speeches.append(j['tts_speech'])
+        
+        audio_data = torch.concat(tts_speeches, dim=1)
         torchaudio.save(buffer,audio_data, 22050, format="wav")
         buffer.seek(0)
         return Response(buffer.read(), mimetype="audio/wav")
@@ -116,55 +104,14 @@ def sft_post():
     # 流式模式
     else:
 
-        spk_id = speaker
-
-        if new:
-            spk_id = "中文女"
-
-        joblist = cosyvoice.frontend.text_normalize_stream(text,True)
-
         def generate():
-        
-            for i in joblist:
-                print(i)
-                print("流式0")
+
+            for i, j in enumerate(cosyvoice.inference_sft(text,speaker,stream=True,speed=speed,new_dropdown="无")):
+
                 tts_speeches = []
-                model_input = cosyvoice.frontend.frontend_sft(i, spk_id)
-                if new:
-                    # 加载数据
-                    newspk = torch.load(f'./voices/{speaker}.pt')
-
-                    model_input["flow_embedding"] = newspk["flow_embedding"]
-                    model_input["llm_embedding"] = newspk["llm_embedding"]
-
-                    model_input["llm_prompt_speech_token"] = newspk["llm_prompt_speech_token"]
-                    model_input["llm_prompt_speech_token_len"] = newspk["llm_prompt_speech_token_len"]
-
-                    model_input["flow_prompt_speech_token"] = newspk["flow_prompt_speech_token"]
-                    model_input["flow_prompt_speech_token_len"] = newspk["flow_prompt_speech_token_len"]
-
-                    model_input["prompt_speech_feat_len"] = newspk["prompt_speech_feat_len"]
-                    model_input["prompt_speech_feat"] = newspk["prompt_speech_feat"]
-                    model_input["prompt_text"] = newspk["prompt_text"]
-                    model_input["prompt_text_len"] = newspk["prompt_text_len"]
-
-                model_output = next(cosyvoice.model.inference_stream(**model_input))
-                # print(model_input)
-                tts_speeches.append(model_output['tts_speech'])
-                output = torch.concat(tts_speeches, dim=1)
                 buffer = io.BytesIO()
-                if speed != 1.0:
-                    try:
-                        numpy_array = output.numpy()
-                        audio = (numpy_array * 32768).astype(np.int16) 
-                        audio_data = speed_change(audio, speed=speed, sr=int(22050))
-                        audio_data = torch.from_numpy(audio_data)
-                        audio_data = audio_data.reshape(1, -1)
-                    except Exception as e:
-                        print(f"Failed to change speed of audio: \n{e}")
-                else:
-                    audio_data = output
-
+                tts_speeches.append(j['tts_speech'])
+                audio_data = torch.concat(tts_speeches, dim=1)
                 torchaudio.save(buffer,audio_data, 22050, format="ogg")
                 buffer.seek(0)
 
@@ -195,27 +142,15 @@ def sft_get():
     # 非流式
     if streaming == 0:
 
-        start = time.process_time()
-        if not new:
-            output = cosyvoice.inference_sft(text,speaker,"无")
-        else:
-            output = cosyvoice.inference_sft(text,speaker,speaker)
-        end = time.process_time()
-        print("infer time:", end - start)
         buffer = io.BytesIO()
 
-        if speed != 1.0:
-            try:
-                numpy_array = output['tts_speech'].numpy()
-                audio = (numpy_array * 32768).astype(np.int16) 
-                audio_data = speed_change(audio, speed=speed, sr=int(22050))
-                audio_data = torch.from_numpy(audio_data)
-                audio_data = audio_data.reshape(1, -1)
-            except Exception as e:
-                print(f"Failed to change speed of audio: \n{e}")
-        else:
-            audio_data = output['tts_speech']
+        tts_speeches = []
 
+        for i, j in enumerate(cosyvoice.inference_sft(text,speaker,stream=False,speed=speed,new_dropdown="无")):
+            # torchaudio.save('sft_{}.wav'.format(i), j['tts_speech'], 22050)
+            tts_speeches.append(j['tts_speech'])
+        
+        audio_data = torch.concat(tts_speeches, dim=1)
         torchaudio.save(buffer,audio_data, 22050, format="wav")
         buffer.seek(0)
         return Response(buffer.read(), mimetype="audio/wav")
@@ -223,55 +158,15 @@ def sft_get():
     # 流式模式
     else:
 
-        spk_id = speaker
-
-        if new:
-            spk_id = "中文女"
-
-        joblist = cosyvoice.frontend.text_normalize_stream(text, split=True)
-
-        def generate():
         
-            for i in joblist:
-                print(i)
-                print("流式0")
+        def generate():
+
+            for i, j in enumerate(cosyvoice.inference_sft(text,speaker,stream=True,speed=speed,new_dropdown="无")):
+
                 tts_speeches = []
-                model_input = cosyvoice.frontend.frontend_sft(i, spk_id)
-                if new:
-                    # 加载数据
-                    newspk = torch.load(f'./voices/{speaker}.pt')
-
-                    model_input["flow_embedding"] = newspk["flow_embedding"]
-                    model_input["llm_embedding"] = newspk["llm_embedding"]
-
-                    model_input["llm_prompt_speech_token"] = newspk["llm_prompt_speech_token"]
-                    model_input["llm_prompt_speech_token_len"] = newspk["llm_prompt_speech_token_len"]
-
-                    model_input["flow_prompt_speech_token"] = newspk["flow_prompt_speech_token"]
-                    model_input["flow_prompt_speech_token_len"] = newspk["flow_prompt_speech_token_len"]
-
-                    model_input["prompt_speech_feat_len"] = newspk["prompt_speech_feat_len"]
-                    model_input["prompt_speech_feat"] = newspk["prompt_speech_feat"]
-                    model_input["prompt_text"] = newspk["prompt_text"]
-                    model_input["prompt_text_len"] = newspk["prompt_text_len"]
-
-                model_output = next(cosyvoice.model.inference_stream(**model_input))
-                # print(model_input)
-                tts_speeches.append(model_output['tts_speech'])
-                output = torch.concat(tts_speeches, dim=1)
                 buffer = io.BytesIO()
-                if speed != 1.0:
-                    try:
-                        numpy_array = output.numpy()
-                        audio = (numpy_array * 32768).astype(np.int16) 
-                        audio_data = speed_change(audio, speed=speed, sr=int(22050))
-                        audio_data = torch.from_numpy(audio_data)
-                        audio_data = audio_data.reshape(1, -1)
-                    except Exception as e:
-                        print(f"Failed to change speed of audio: \n{e}")
-                else:
-                    audio_data = output
-
+                tts_speeches.append(j['tts_speech'])
+                audio_data = torch.concat(tts_speeches, dim=1)
                 torchaudio.save(buffer,audio_data, 22050, format="ogg")
                 buffer.seek(0)
 
@@ -299,7 +194,6 @@ def tts_to_audio():
 
     text = question_data.get('text')
     speaker = speaker_config.speaker
-    new = speaker_config.new
 
     speed = speaker_config.speed
     
@@ -310,26 +204,15 @@ def tts_to_audio():
     if not speaker:
         return {"error": "角色名不能为空"}, 400
 
-    start = time.process_time()
-    if not new:
-        output = cosyvoice.inference_sft(text,speaker,"无")
-    else:
-        output = cosyvoice.inference_sft(text,speaker,speaker)
-    end = time.process_time()
-    print("infer time:", end - start)
     buffer = io.BytesIO()
-    if speed != 1.0:
-        try:
-            numpy_array = output['tts_speech'].numpy()
-            audio = (numpy_array * 32768).astype(np.int16) 
-            audio_data = speed_change(audio, speed=speed, sr=int(22050))
-            audio_data = torch.from_numpy(audio_data)
-            audio_data = audio_data.reshape(1, -1)
-        except Exception as e:
-            print(f"Failed to change speed of audio: \n{e}")
-    else:
-        audio_data = output['tts_speech']
 
+    tts_speeches = []
+
+    for i, j in enumerate(cosyvoice.inference_sft(text,speaker,stream=False,speed=speed,new_dropdown="无")):
+        # torchaudio.save('sft_{}.wav'.format(i), j['tts_speech'], 22050)
+        tts_speeches.append(j['tts_speech'])
+    
+    audio_data = torch.concat(tts_speeches, dim=1)
     torchaudio.save(buffer,audio_data, 22050, format="wav")
     buffer.seek(0)
     return Response(buffer.read(), mimetype="audio/wav")

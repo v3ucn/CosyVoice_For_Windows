@@ -567,8 +567,7 @@ class NoamAnnealing(_LRScheduler):
                  min_lr=0.0,
                  last_epoch=-1):
         self._normalize = d_model**(-0.5)
-        assert not (warmup_steps is not None
-                    and warmup_ratio is not None), \
+        assert not (warmup_steps is not None and warmup_ratio is not None), \
             "Either use particular number of step or ratio"
         assert warmup_ratio is None or max_steps is not None, \
             "If there is a ratio, there should be a total steps"
@@ -712,6 +711,28 @@ class NoamHoldAnnealing(WarmupHoldPolicy):
             ) for initial_lr in self.base_lrs
         ]
         return new_lrs
+
+    def set_step(self, step: int):
+        self.last_epoch = step
+
+
+class ConstantLR(_LRScheduler):
+    """The ConstantLR scheduler
+
+    This scheduler keeps a constant lr
+
+    """
+
+    def __init__(
+        self,
+        optimizer: torch.optim.Optimizer,
+    ):
+        # __init__() must be invoked before setting field
+        # because step() is also invoked in __init__()
+        super().__init__(optimizer)
+
+    def get_lr(self):
+        return self.base_lrs
 
     def set_step(self, step: int):
         self.last_epoch = step
