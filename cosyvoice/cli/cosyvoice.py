@@ -186,12 +186,36 @@ class CosyVoice:
                 yield model_output
                 start_time = time.time()
 
-    def inference_instruct(self, tts_text, spk_id, instruct_text, stream=False, speed=1.0):
+    def inference_instruct(self, tts_text, spk_id, instruct_text, stream=False,speed=1.0,new_dropdown="无"):
         if self.frontend.instruct is False:
             raise ValueError('{} do not support instruct inference'.format(self.model_dir))
         instruct_text = self.frontend.text_normalize(instruct_text, split=False)
         for i in tqdm(self.frontend.text_normalize(tts_text, split=True)):
-            model_input = self.frontend.frontend_instruct(i, spk_id, instruct_text)
+
+
+            if new_dropdown != "无":
+                
+                model_input = self.frontend.frontend_instruct(i,"中文女", instruct_text)
+
+                print({grandparent_dir})
+
+                newspk = torch.load(f'{grandparent_dir}/voices/{new_dropdown}.pt')
+
+                model_input["flow_embedding"] = newspk["flow_embedding"] 
+                model_input["llm_embedding"] = newspk["llm_embedding"]
+
+                model_input["llm_prompt_speech_token"] = newspk["llm_prompt_speech_token"]
+                model_input["llm_prompt_speech_token_len"] = newspk["llm_prompt_speech_token_len"]
+
+                model_input["flow_prompt_speech_token"] = newspk["flow_prompt_speech_token"]
+                model_input["flow_prompt_speech_token_len"] = newspk["flow_prompt_speech_token_len"]
+
+            else:
+            
+                model_input = self.frontend.frontend_instruct(i, spk_id, instruct_text)
+            
+            
+            
             start_time = time.time()
             logging.info('synthesis text {}'.format(i))
             for model_output in self.model.tts(**model_input, stream=stream, speed=speed):

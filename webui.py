@@ -116,6 +116,7 @@ def change_instruction(mode_checkbox_group):
 
 def generate_audio(tts_text, mode_checkbox_group, sft_dropdown, prompt_text, prompt_wav_upload, prompt_wav_record, instruct_text,
                    seed, stream, speed,new_dropdown):
+     
     if prompt_wav_upload is not None:
         prompt_wav = prompt_wav_upload
     elif prompt_wav_record is not None:
@@ -183,7 +184,7 @@ def generate_audio(tts_text, mode_checkbox_group, sft_dropdown, prompt_text, pro
     else:
         logging.info('get instruct inference request')
         set_all_random_seed(seed)
-        for i in cosyvoice.inference_instruct(tts_text, sft_dropdown, instruct_text, stream=stream, speed=speed):
+        for i in cosyvoice.inference_instruct(tts_text, sft_dropdown, instruct_text, stream=stream, speed=speed,new_dropdown=new_dropdown):
             yield (target_sr, i['tts_speech'].numpy().flatten())
 
 
@@ -204,7 +205,8 @@ def main():
             new_dropdown = gr.Dropdown(choices=spk_new, label='选择新增音色', value=spk_new[0],interactive=True)
             refresh_new_button = gr.Button("刷新新增音色")
             refresh_new_button.click(fn=refresh_choices, inputs=[], outputs=[new_dropdown])
-            stream = gr.Radio(choices=stream_mode_list, label='是否流式推理', value=stream_mode_list[0][1])
+            stream = gr.Radio(choices=stream_mode_list, label='是否流式推理', value=stream_mode_list[0][1],visible=False)
+            stream_1 = gr.Radio(choices=stream_mode_list, label='是否流式推理', value=stream_mode_list[1][1],visible=False)
             speed = gr.Number(value=1, label="速度调节(仅支持非流式推理)", minimum=0.5, maximum=2.0, step=0.1)
             with gr.Column(scale=0.25):
                 seed_button = gr.Button(value="\U0001F3B2")
@@ -229,13 +231,24 @@ def main():
 
         generate_button = gr.Button("生成音频")
 
-        audio_output = gr.Audio(label="合成音频", autoplay=True, streaming=True)
+        generate_button_stream = gr.Button("流式生成音频")
+
+        audio_output = gr.Audio(label="合成音频", autoplay=False, streaming=False,show_download_button=True)
+
+        audio_output_stream = gr.Audio(label="流式音频", autoplay=True, streaming=True,show_download_button=True)
 
         seed_button.click(generate_seed, inputs=[], outputs=seed)
+        
         generate_button.click(generate_audio,
                               inputs=[tts_text, mode_checkbox_group, sft_dropdown, prompt_text, prompt_wav_upload, prompt_wav_record, instruct_text,
                                       seed, stream, speed,new_dropdown],
                               outputs=[audio_output])
+
+        generate_button_stream.click(generate_audio,
+                              inputs=[tts_text, mode_checkbox_group, sft_dropdown, prompt_text, prompt_wav_upload, prompt_wav_record, instruct_text,
+                                      seed,stream_1, speed,new_dropdown],
+                              outputs=[audio_output_stream])
+                              
         mode_checkbox_group.change(fn=change_instruction, inputs=[mode_checkbox_group], outputs=[instruction_text])
     demo.queue(max_size=4, default_concurrency_limit=2)
     demo.launch(server_name='0.0.0.0', server_port=args.port,inbrowser=True)
